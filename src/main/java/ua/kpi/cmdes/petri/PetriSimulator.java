@@ -15,21 +15,20 @@ import ua.kpi.cmdes.petri.SimulationListener.EventType;
 public final class PetriSimulator {
 
     private final List<Transition> transitions;
+    private final List<Transition> timedTransitions;
     private final RandomGenerator random;
     private final List<SimulationListener> listeners = new ArrayList<>();
     private double currentTime;
 
     public PetriSimulator(PetriNet net, RandomGenerator random) {
+        net.validate();
         this.transitions = net.transitions();
+        this.timedTransitions = transitions.stream().filter(t -> !t.isImmediate()).toList();
         this.random = random;
     }
 
     public void addListener(SimulationListener listener) {
         listeners.add(listener);
-    }
-
-    public double currentTime() {
-        return currentTime;
     }
 
     /** Імітує функціонування мережі на інтервалі [0; endTime]. */
@@ -52,16 +51,20 @@ public final class PetriSimulator {
 
     private double nearestEventTime() {
         double nearest = Double.POSITIVE_INFINITY;
-        for (Transition transition : transitions) {
+        for (Transition transition : timedTransitions) {
             nearest = Math.min(nearest, transition.exitTime());
         }
         return nearest;
     }
 
-    /** Вихід маркерів з усіх переходів, момент виходу яких збігся з поточним, у випадковому порядку. */
+    /**
+     * Вихід маркерів з усіх переходів, момент виходу яких збігся з поточним. Вихід лише додає маркери,
+     * тому його порядок не впливає на стан мережі; випадковий порядок робить протокол подій незалежним
+     * від порядку оголошення переходів.
+     */
     private void exitTransitionsAt(double time) {
         List<Transition> due = new ArrayList<>();
-        for (Transition transition : transitions) {
+        for (Transition transition : timedTransitions) {
             if (transition.exitTime() == time) {
                 due.add(transition);
             }

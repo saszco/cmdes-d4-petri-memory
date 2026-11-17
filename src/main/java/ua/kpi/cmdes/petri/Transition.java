@@ -71,11 +71,11 @@ public final class Transition {
         return exitTime;
     }
 
-    public List<Arc> inputs() {
+    List<Arc> inputs() {
         return List.copyOf(inputs);
     }
 
-    public List<Arc> outputs() {
+    List<Arc> outputs() {
         return List.copyOf(outputs);
     }
 
@@ -92,14 +92,18 @@ public final class Transition {
         return true;
     }
 
-    /** Вхід маркерів: для часового переходу планується момент виходу. */
+    /** Вхід маркерів: для часового переходу планується момент виходу, затримка має бути невід'ємною. */
     void enter(double currentTime, RandomGenerator random) {
         inputs.forEach(arc -> arc.place().remove(arc.multiplicity()));
         if (isImmediate()) {
             exit();
-        } else {
-            exitTime = currentTime + delay.next(random);
+            return;
         }
+        double value = delay.next(random);
+        if (value < 0 || Double.isNaN(value)) {
+            throw new IllegalStateException("Від'ємна часова затримка переходу «" + name + "»: " + value);
+        }
+        exitTime = currentTime + value;
     }
 
     /** Вихід маркерів у вихідні позиції. */

@@ -8,6 +8,14 @@ public interface Delay {
 
     double next(RandomGenerator random);
 
+    /** Детермінована затримка. */
+    static Delay constant(double value) {
+        if (value < 0) {
+            throw new IllegalArgumentException("Negative delay");
+        }
+        return random -> value;
+    }
+
     /** Рівномірний розподіл на інтервалі (min; max). */
     static Delay uniform(double min, double max) {
         if (min < 0 || max <= min) {
