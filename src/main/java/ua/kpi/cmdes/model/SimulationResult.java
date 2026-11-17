@@ -34,16 +34,16 @@ public record SimulationResult(
     }
 
     public double refusalProbability() {
-        return arrivals == 0 ? 0 : (double) refused / arrivals;
+        return arrivals == 0 ? Double.NaN : (double) refused / arrivals;
     }
 
     /** Продуктивність, завдань/хв. */
     public double throughput() {
-        return completed / observationTime;
+        return observationTime > 0 ? completed / observationTime : Double.NaN;
     }
 
     /** Середній час перебування допущеного завдання в системі за формулою Літтла, хв. */
     public double meanTimeInSystem() {
-        return admitted == 0 ? 0 : meanJobsInSystem / (admitted / observationTime);
+        return admitted == 0 ? Double.NaN : meanJobsInSystem / (admitted / observationTime);
     }
 }

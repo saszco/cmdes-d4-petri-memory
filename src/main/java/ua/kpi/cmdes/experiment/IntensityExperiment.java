@@ -1,9 +1,5 @@
 package ua.kpi.cmdes.experiment;
 
-import static ua.kpi.cmdes.experiment.ExperimentSettings.REPLICATIONS;
-import static ua.kpi.cmdes.experiment.ExperimentSettings.SIMULATION_TIME;
-import static ua.kpi.cmdes.experiment.ExperimentSettings.WARM_UP_TIME;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -15,7 +11,8 @@ import ua.kpi.cmdes.stats.Sample;
 
 /**
  * Основний експеримент: вплив інтенсивності надходження завдань на зайняту оперативну пам'ять
- * для кількох значень обсягу пам'яті. Для кожної точки виконується REPLICATIONS прогонів.
+ * для кількох значень обсягу пам'яті. У кожній точці виконується стільки прогонів, скільки потрібно
+ * для заданої точності оцінки середньої кількості зайнятих сторінок.
  */
 public final class IntensityExperiment {
 
@@ -28,21 +25,20 @@ public final class IntensityExperiment {
             List<String> rows = new ArrayList<>();
             for (double interval : MEAN_INTERVALS) {
                 SystemParameters parameters = new SystemParameters(interval, 2, memory);
-                List<SimulationResult> results =
-                        Replications.run(parameters, REPLICATIONS, SIMULATION_TIME, WARM_UP_TIME, 10_000);
+                List<SimulationResult> results = Replications.untilAccuracy(parameters, 10_000);
                 Sample occupied = sample(results, SimulationResult::meanOccupiedPages);
-                String row = String.format(Locale.US, "%.2f %.5f %.4f %.4f %.4f %.4f %.5f %.4f %.4f %.2f",
+                String row = String.format(Locale.US, "%.2f %.5f %.4f %.4f %.4f %.4f %.5f %.4f %.4f %.2f %d",
                         interval, 1 / interval, occupied.mean(), occupied.chebyshevError95(),
                         sample(results, r -> r.occupiedPages().standardDeviation()).mean(),
                         sample(results, SimulationResult::memoryUtilization).mean(),
                         sample(results, SimulationResult::refusalProbability).mean(),
                         sample(results, SimulationResult::throughput).mean(),
                         sample(results, SimulationResult::blockedShare1).mean(),
-                        sample(results, SimulationResult::meanTimeInSystem).mean());
+                        sample(results, SimulationResult::meanTimeInSystem).mean(), results.size());
                 rows.add(row);
                 System.out.println("M=" + memory + ": " + row);
             }
-            DataFiles.write("intensity-M" + memory + ".csv", "tau lambda L eps sdL UM Pref prod B1 W", rows);
+            DataFiles.write("intensity-M" + memory + ".csv", "tau lambda L eps sdL UM Pref prod B1 W p", rows);
         }
     }
 

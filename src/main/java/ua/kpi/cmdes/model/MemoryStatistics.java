@@ -4,7 +4,11 @@ import ua.kpi.cmdes.petri.SimulationListener;
 import ua.kpi.cmdes.petri.Transition;
 import ua.kpi.cmdes.stats.TimeWeightedStatistic;
 
-/** Збирає вихідні характеристики моделі після завершення перехідного періоду {@code warmUpTime}. */
+/**
+ * Збирає вихідні характеристики моделі після завершення перехідного періоду {@code warmUpTime}.
+ * Кількості допущених, відмовлених і оброблених завдань визначаються за маркіруванням
+ * позицій-лічильників як різниця між кінцем прогону та моментом завершення перехідного періоду.
+ */
 final class MemoryStatistics implements SimulationListener {
 
     private final MemorySystemNet net;
@@ -21,10 +25,7 @@ final class MemoryStatistics implements SimulationListener {
     private final TimeWeightedStatistic blocked2 = new TimeWeightedStatistic();
     private final TimeWeightedStatistic jobsInSystem = new TimeWeightedStatistic();
 
-    private long arrivals;
-    private long admitted;
-    private long refused;
-    private long completed;
+    private int[] countersAtWarmUp;
     private double lastCompletionTime;
 
     MemoryStatistics(MemorySystemNet net, double warmUpTime) {
@@ -34,6 +35,9 @@ final class MemoryStatistics implements SimulationListener {
 
     @Override
     public void onTimeAdvance(double from, double to) {
+        if (countersAtWarmUp == null && to >= warmUpTime) {
+            countersAtWarmUp = counters();
+        }
         double dt = to - Math.max(from, warmUpTime);
         if (dt <= 0) {
             return;
@@ -55,26 +59,25 @@ final class MemoryStatistics implements SimulationListener {
         if (transition == net.processing && type == EventType.EXIT) {
             lastCompletionTime = time;
         }
-        if (time < warmUpTime) {
-            return;
-        }
-        if (transition == net.arrival && type == EventType.EXIT) {
-            arrivals++;
-        } else if (transition == net.admission) {
-            admitted++;
-        } else if (transition == net.refusal) {
-            refused++;
-        } else if (transition == net.processing && type == EventType.EXIT) {
-            completed++;
-        }
+    }
+
+    private int[] counters() {
+        return new int[] {net.admitted.marking(), net.refused.marking(), net.completed.marking()};
     }
 
     SimulationResult result() {
+        int[] now = counters();
+        long[] counts = new long[now.length];
+        for (int i = 0; i < now.length && countersAtWarmUp != null; i++) {
+            counts[i] = now[i] - countersAtWarmUp[i];
+        }
+        long admitted = counts[0];
+        long refused = counts[1];
         return new SimulationResult(
                 net.memoryPages(), occupied.totalTime(), occupied,
                 queue1.mean(), queue2.mean(), queue3.mean(),
                 busy1.mean(), busy2.mean(), busy3.mean(),
                 blocked1.mean(), blocked2.mean(), jobsInSystem.mean(),
-                arrivals, admitted, refused, completed, lastCompletionTime);
+                admitted + refused, admitted, refused, counts[2], lastCompletionTime);
     }
 }

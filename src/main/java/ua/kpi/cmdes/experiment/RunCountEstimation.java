@@ -21,13 +21,20 @@ public final class RunCountEstimation {
 
     public static void main(String[] args) {
         for (double interval : new double[] {6, 5.5, 5, 4.5, 4}) {
-            SystemParameters parameters = SystemParameters.initial().withMeanArrivalInterval(interval);
-            List<Double> means = Replications.run(parameters, PILOT_RUNS, SIMULATION_TIME, WARM_UP_TIME, 500)
-                    .stream().map(SimulationResult::meanOccupiedPages).toList();
-            Sample sample = Sample.of(means);
-            int required = (int) Math.ceil(20 * Math.pow(sample.standardDeviation() / ACCURACY, 2));
-            System.out.printf(Locale.US, "tau=%.1f: середнє %.3f, СКВ між прогонами %.4f, p = %d%n",
-                    interval, sample.mean(), sample.standardDeviation(), Math.max(required, 1));
+            estimate(SystemParameters.initial().withMeanArrivalInterval(interval));
         }
+        for (int memory : new int[] {20, 60}) {
+            estimate(SystemParameters.initial().withMemoryPages(memory));
+        }
+    }
+
+    private static void estimate(SystemParameters parameters) {
+        List<Double> means = Replications.run(parameters, PILOT_RUNS, SIMULATION_TIME, WARM_UP_TIME, 500)
+                .stream().map(SimulationResult::meanOccupiedPages).toList();
+        Sample sample = Sample.of(means);
+        int required = (int) Math.ceil(20 * Math.pow(sample.standardDeviation() / ACCURACY, 2));
+        System.out.printf(Locale.US, "tau=%.1f, M=%d: середнє %.3f, СКВ між прогонами %.4f, p = %d%n",
+                parameters.meanArrivalInterval(), parameters.memoryPages(), sample.mean(),
+                sample.standardDeviation(), Math.max(required, 1));
     }
 }

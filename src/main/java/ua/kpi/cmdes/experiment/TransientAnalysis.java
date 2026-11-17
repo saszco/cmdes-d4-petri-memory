@@ -18,7 +18,7 @@ import ua.kpi.cmdes.model.SystemParameters;
 public final class TransientAnalysis {
 
     private static final int RUNS = 5;
-    private static final double EPSILON = 0.5;
+    private static final double EPSILON = 0.25;
     private static final int ENSEMBLE_RUNS = 200;
 
     public static void main(String[] args) {
@@ -65,13 +65,16 @@ public final class TransientAnalysis {
 
         StringBuilder finals = new StringBuilder();
         curves.forEach(c -> finals.append(' ').append(format(c.getLast(), 3)));
-        System.out.printf(Locale.US, "tau=%.0f: розкид < %.1f з T = %s хв; найбільший розкид у другій половині %.3f;"
+        System.out.printf(Locale.US, "tau=%.0f: розкид < %.2f з T = %s хв; найбільший розкид у другій половині %.3f;"
                         + " середні на %.0f хв:%s%n",
                 parameters.meanArrivalInterval(), EPSILON, Double.isNaN(settledFrom) ? "-" : format(settledFrom, 0),
                 maxSpread, horizon, finals);
     }
 
-    /** Середнє миттєвої кількості зайнятих сторінок за ENSEMBLE_RUNS прогонами в кожен момент t. */
+    /**
+     * Середнє миттєвої кількості зайнятих сторінок за ENSEMBLE_RUNS прогонами в кожен момент t
+     * та межі смуги ±2 стандартні похибки цього середнього.
+     */
     private static void ensemble(SystemParameters parameters, double horizon, double step) {
         List<List<Integer>> snapshots = IntStream.range(0, ENSEMBLE_RUNS).parallel()
                 .mapToObj(run -> {
@@ -89,9 +92,12 @@ public final class TransientAnalysis {
         for (int i = 0; i < points; i++) {
             int index = i;
             means[i] = snapshots.stream().mapToInt(s -> s.get(index)).average().orElseThrow();
-            rows.add(format((i + 1) * step, 0) + " " + format(means[i], 3));
+            double squares = snapshots.stream().mapToDouble(s -> Math.pow(s.get(index) - means[index], 2)).sum();
+            double band = 2 * Math.sqrt(squares / (ENSEMBLE_RUNS - 1) / ENSEMBLE_RUNS);
+            rows.add(format((i + 1) * step, 0) + " " + format(means[i], 3) + " "
+                    + format(means[i] - band, 3) + " " + format(means[i] + band, 3));
         }
-        DataFiles.write("ensemble-tau" + format(parameters.meanArrivalInterval(), 0) + ".csv", "t mean", rows);
+        DataFiles.write("ensemble-tau" + format(parameters.meanArrivalInterval(), 0) + ".csv", "t mean lo hi", rows);
 
         double stationary = IntStream.range(points / 2, points).mapToDouble(i -> means[i]).average().orElseThrow();
         System.out.printf(Locale.US, "ансамбль %d прогонів: стале середнє %.3f; середнє за ансамблем на t = 5000,"

@@ -10,6 +10,7 @@ public final class MemorySystemModel {
 
     private final MemorySystemNet net;
     private final PetriSimulator simulator;
+    private boolean finished;
 
     public MemorySystemModel(SystemParameters parameters, long seed) {
         net = new MemorySystemNet(parameters);
@@ -26,6 +27,10 @@ public final class MemorySystemModel {
 
     /** Один прогін моделі; статистика збирається на інтервалі [warmUpTime; simulationTime]. */
     public SimulationResult run(double simulationTime, double warmUpTime) {
+        if (finished) {
+            throw new IllegalStateException("Model has already been run; create a new one");
+        }
+        finished = true;
         MemoryStatistics statistics = new MemoryStatistics(net, warmUpTime);
         simulator.addListener(statistics);
         simulator.run(simulationTime);
