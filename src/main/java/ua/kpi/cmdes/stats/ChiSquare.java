@@ -11,6 +11,7 @@ public final class ChiSquare {
 
     /** Ймовірність P(chi^2 >= statistic) для заданої кількості ступенів вільності. */
     public static double pValue(double statistic, int degreesOfFreedom) {
+        requirePositive(degreesOfFreedom);
         if (statistic <= 0) {
             return 1;
         }
@@ -19,6 +20,7 @@ public final class ChiSquare {
 
     /** Критичне значення chi^2 рівня alpha, знайдене бісекцією. */
     public static double criticalValue(double alpha, int degreesOfFreedom) {
+        requirePositive(degreesOfFreedom);
         double low = 0;
         double high = degreesOfFreedom + 50 * Math.sqrt(2.0 * degreesOfFreedom) + 50;
         for (int i = 0; i < 200; i++) {
@@ -30,6 +32,12 @@ public final class ChiSquare {
             }
         }
         return (low + high) / 2;
+    }
+
+    private static void requirePositive(int degreesOfFreedom) {
+        if (degreesOfFreedom < 1) {
+            throw new IllegalArgumentException("Degrees of freedom must be positive: " + degreesOfFreedom);
+        }
     }
 
     /** Регуляризована нижня неповна гамма-функція P(a, x): ряд для x < a + 1, інакше ланцюговий дріб. */

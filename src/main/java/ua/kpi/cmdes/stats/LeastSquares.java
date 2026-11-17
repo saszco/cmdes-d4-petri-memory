@@ -6,8 +6,12 @@ public final class LeastSquares {
     private LeastSquares() {
     }
 
-    /** Результат: коефіцієнти моделі та індекс кореляції R. */
-    public record Fit(double[] coefficients, double correlationIndex) {
+    /**
+     * Результат: коефіцієнти моделі, індекс кореляції R, залишкова сума квадратів і діагональ
+     * матриці (X^T X)^(-1), потрібна для оцінки значущості коефіцієнтів.
+     */
+    public record Fit(double[] coefficients, double correlationIndex, double residualSquares,
+                      double[] inverseDiagonal) {
 
         public double predict(double[] basis) {
             double value = 0;
@@ -21,34 +25,46 @@ public final class LeastSquares {
     /** Кожен рядок {@code design} -- значення базисних функцій (перша зазвичай 1) у точці експерименту. */
     public static Fit fit(double[][] design, double[] response) {
         int m = design[0].length;
-        double[][] normal = new double[m][m + 1];
+        double[][] normal = new double[m][m];
+        double[] right = new double[m];
         for (int row = 0; row < design.length; row++) {
             for (int i = 0; i < m; i++) {
                 for (int j = 0; j < m; j++) {
                     normal[i][j] += design[row][i] * design[row][j];
                 }
-                normal[i][m] += design[row][i] * response[row];
+                right[i] += design[row][i] * response[row];
             }
         }
-        double[] coefficients = solve(normal);
-        Fit fit = new Fit(coefficients, 0);
+        double[] coefficients = solve(normal, right);
+        double[] inverseDiagonal = new double[m];
+        for (int k = 0; k < m; k++) {
+            double[] unit = new double[m];
+            unit[k] = 1;
+            inverseDiagonal[k] = solve(normal, unit)[k];
+        }
 
         double mean = 0;
         for (double y : response) {
             mean += y / response.length;
         }
+        Fit fit = new Fit(coefficients, 0, 0, inverseDiagonal);
         double residual = 0;
         double total = 0;
         for (int row = 0; row < design.length; row++) {
             residual += Math.pow(response[row] - fit.predict(design[row]), 2);
             total += Math.pow(response[row] - mean, 2);
         }
-        return new Fit(coefficients, Math.sqrt(1 - residual / total));
+        return new Fit(coefficients, Math.sqrt(1 - residual / total), residual, inverseDiagonal);
     }
 
-    /** Метод Гаусса з вибором головного елемента для розширеної матриці системи. */
-    private static double[] solve(double[][] augmented) {
-        int n = augmented.length;
+    /** Метод Гаусса з вибором головного елемента; вихідні матриця та вектор не змінюються. */
+    private static double[] solve(double[][] matrix, double[] right) {
+        int n = matrix.length;
+        double[][] augmented = new double[n][n + 1];
+        for (int row = 0; row < n; row++) {
+            System.arraycopy(matrix[row], 0, augmented[row], 0, n);
+            augmented[row][n] = right[row];
+        }
         for (int col = 0; col < n; col++) {
             int pivot = col;
             for (int row = col + 1; row < n; row++) {
